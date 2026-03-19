@@ -1,144 +1,64 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
-
-REM --- always run from this script's folder ---
+setlocal EnableExtensions
 cd /d "%~dp0"
 
 set "APP=app.py"
-set "REQ=requirements.txt"
-set "VENV=.venv"
+set "LOG=launcher_log.txt"
 
-echo.
-echo ==========================================
-echo   Touchstone Viewer - Launcher
-echo ==========================================
-echo.
+echo ========================================== > "%LOG%"
+echo Touchstone Viewer Launcher (system python) >> "%LOG%"
+echo Folder: %cd% >> "%LOG%"
+echo ========================================== >> "%LOG%"
+echo. >> "%LOG%"
 
-REM --- sanity checks ---
 if not exist "%APP%" (
-  echo ERROR: "%APP%" not found in:
-  echo   %cd%
-  echo Put run_touchstone_viewer.bat next to app.py
+  echo ERROR: app.py not found: %cd%\%APP% >> "%LOG%"
+  echo ERROR: app.py not found in this folder.
+  echo See: %LOG%
   pause
   exit /b 1
 )
 
-if not exist "%REQ%" (
-  echo ERROR: "%REQ%" not found in:
-  echo   %cd%
-  echo Create requirements.txt (see instructions).
+REM Pick python command
+set "PY=python"
+where py >nul 2>&1
+if %errorlevel%==0 set "PY=py -3"
+
+echo Using python command: %PY% >> "%LOG%"
+%PY% -c "import sys; print('Python exe:', sys.executable); print('Python ver:', sys.version)" >> "%LOG%" 2>&1
+
+REM Verify streamlit import BEFORE running (this is the #1 cause of instant exit)
+%PY% -c "import streamlit; print('Streamlit:', streamlit.__version__)" >> "%LOG%" 2>&1
+if %errorlevel% neq 0 (
+  echo. >> "%LOG%"
+  echo ERROR: streamlit is not installed for this Python. >> "%LOG%"
+  echo.
+  echo ERROR: Streamlit is not installed for your system Python.
+  echo Open launcher_log.txt and install it with:
+  echo   %PY% -m pip install streamlit
+  echo.
+  echo See: %LOG%
   pause
   exit /b 1
 )
 
-REM --- locate Python: prefer py launcher, then python ---
-set "PY="
-where py >nul 2>&1 && set "PY=py -3"
-if "%PY%"=="" (
-  where python >nul 2>&1 && set "PY=python"
-)
-
-REM --- if no python, try winget install ---
-if "%PY%"=="" (
-  echo Python not found.
-  echo Trying to install Python with winget (if available)...
-  echo.
-
-  where winget >nul 2>&1
-  if errorlevel 1 (
-    echo winget not found. Cannot auto-install Python.
-    echo Please install Python 3.9+ from:
-    echo   https://www.python.org/downloads/
-    echo Then run this .bat again.
-    pause
-    exit /b 1
-  )
-
-  winget install -e --id Python.Python.3.11 --silent --accept-source-agreements --accept-package-agreements
-  if errorlevel 1 (
-    echo winget install failed or was blocked by policy.
-    echo Please install Python manually:
-    echo   https://www.python.org/downloads/
-    pause
-    exit /b 1
-  )
-
-  echo.
-  echo Python install command finished.
-  echo NOTE: You may need to CLOSE this window and run the .bat again
-  echo       (PATH/py launcher may not be visible until a new shell).
-  echo.
-
-  where py >nul 2>&1 && set "PY=py -3"
-  if "%PY%"=="" (
-    where python >nul 2>&1 && set "PY=python"
-  )
-
-  if "%PY%"=="" (
-    echo Python still not detected in this shell.
-    echo Close this window and double-click the .bat again.
-    pause
-    exit /b 0
-  )
-)
-
-REM --- show python version ---
-echo Using: %PY%
-%PY% -c "import sys; print('Python:', sys.version.split()[0])"
-if errorlevel 1 (
-  echo ERROR: Python is not working correctly.
-  pause
-  exit /b 1
-)
-
-REM --- create venv if missing ---
-if not exist "%VENV%\Scripts\python.exe" (
-  echo.
-  echo Creating virtual environment: %VENV%
-  %PY% -m venv "%VENV%"
-  if errorlevel 1 (
-    echo ERROR: Failed to create venv. Your Python may be missing venv support.
-    pause
-    exit /b 1
-  )
-)
-
-set "VPY=%cd%\%VENV%\Scripts\python.exe"
-set "VPIP=%cd%\%VENV%\Scripts\pip.exe"
-
-REM --- upgrade packaging tools ---
+echo. >> "%LOG%"
+echo Starting Streamlit... >> "%LOG%"
 echo.
-echo Upgrading pip/setuptools/wheel...
-"%VPY%" -m pip install --upgrade pip setuptools wheel
-if errorlevel 1 (
-  echo ERROR: pip upgrade failed (network/proxy restrictions?).
-  pause
-  exit /b 1
-)
-
-REM --- install requirements into venv ---
-echo.
-echo Installing requirements from %REQ% ...
-"%VPIP%" install -r "%REQ%"
-if errorlevel 1 (
-  echo.
-  echo ERROR: Dependency install failed.
-  echo Common causes: corporate proxy, blocked PyPI, SSL inspection.
-  echo If you're on a company network, you may need an internal PyPI mirror.
-  pause
-  exit /b 1
-)
-
-REM --- run streamlit app ---
-echo.
-echo Starting app...
-echo If your browser does not open, visit: http://localhost:8501
-echo (Close this window to stop the app.)
+echo Starting Streamlit...
+echo If it doesn't open automatically, go to:
+echo   http://localhost:8501
 echo.
 
-"%VPY%" -m streamlit run "%APP%" --browser.gatherUsageStats=false
+REM Start browser, then start streamlit (streamlit keeps running until you stop it)
+
+
+%PY% -m streamlit run "%APP%" --browser.gatherUsageStats=false >> "%LOG%" 2>&1
+
+echo. >> "%LOG%"
+echo Streamlit exited with errorlevel %errorlevel% >> "%LOG%"
 
 echo.
-echo App stopped.
+echo Streamlit exited. See: %LOG%
 pause
 exit /b 0
