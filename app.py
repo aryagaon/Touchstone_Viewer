@@ -14,6 +14,7 @@ import threading
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 import streamlit as st
 import skrf as rf
 
@@ -277,11 +278,23 @@ def apply_limits(
     use_ylim: bool,
     ymin: Optional[float],
     ymax: Optional[float],
+    use_xstep: bool,
+    xstep: Optional[float],
+    use_ystep: bool,
+    ystep: Optional[float],
 ):
     if use_xlim and xmin is not None and xmax is not None and xmin < xmax:
         ax.set_xlim(xmin, xmax)
+
     if use_ylim and ymin is not None and ymax is not None and ymin < ymax:
         ax.set_ylim(ymin, ymax)
+
+    if use_xstep and xstep is not None and xstep > 0:
+        ax.xaxis.set_major_locator(MultipleLocator(xstep))
+
+    if use_ystep and ystep is not None and ystep > 0:
+        ax.yaxis.set_major_locator(MultipleLocator(ystep))
+
 
 
 LEGEND_LOCS = [
@@ -310,6 +323,10 @@ def make_overlay_figure(
     use_ylim: bool,
     ymin: Optional[float],
     ymax: Optional[float],
+    use_xstep: bool,
+    xstep: Optional[float],
+    use_ystep: bool,
+    ystep: Optional[float],
     legend_show: bool,
     legend_loc: str,
     legend_ncol: int,
@@ -324,7 +341,17 @@ def make_overlay_figure(
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.25)
+
+    apply_limits(
+        ax,
+        use_xlim, xmin, xmax,
+        use_ylim, ymin, ymax,
+        use_xstep, xstep,
+        use_ystep, ystep,
+    )
+
+    # grid follows the major ticks
+    ax.grid(True, which="major", alpha=0.25)
 
     if legend_show:
         ax.legend(
@@ -334,7 +361,6 @@ def make_overlay_figure(
             frameon=legend_frame,
         )
 
-    apply_limits(ax, use_xlim, xmin, xmax, use_ylim, ymin, ymax)
     return fig
 
 
@@ -547,6 +573,29 @@ def plot_settings_block(prefix: str, default_title: str, default_ylabel: str):
         with c3:
             ymax = st.number_input("Y max", value=0.0, key=prefix + "_ymax")
 
+        st.markdown("**Axis step / grid spacing**")
+        c1, c2 = st.columns(2)
+        with c1:
+            use_xstep = st.checkbox("Use X step", value=False, key=prefix + "_use_xstep")
+            xstep = st.number_input(
+                "X step",
+                min_value=0.000001,
+                value=5.0,
+                step=1.0,
+                key=prefix + "_xstep",
+                help="Major tick spacing on X axis. Example: 5 gives grid at 0, 5, 10, ...",
+            )
+        with c2:
+            use_ystep = st.checkbox("Use Y step", value=False, key=prefix + "_use_ystep")
+            ystep = st.number_input(
+                "Y step",
+                min_value=0.000001,
+                value=5.0,
+                step=1.0,
+                key=prefix + "_ystep",
+                help="Major tick spacing on Y axis.",
+            )
+
         st.markdown("**Legend**")
         c1, c2, c3, c4 = st.columns(4)
         with c1:
@@ -556,11 +605,38 @@ def plot_settings_block(prefix: str, default_title: str, default_ylabel: str):
         with c3:
             legend_ncol = st.slider("Columns", min_value=1, max_value=6, value=2, key=prefix + "_leg_ncol")
         with c4:
-            legend_fontsize = st.number_input("Font size", min_value=6.0, max_value=18.0, value=9.0, step=0.5, key=prefix + "_leg_fs")
+            legend_fontsize = st.number_input(
+                "Font size",
+                min_value=6.0,
+                max_value=18.0,
+                value=9.0,
+                step=0.5,
+                key=prefix + "_leg_fs",
+            )
 
         legend_frame = st.checkbox("Legend frame", value=False, key=prefix + "_leg_frame")
 
-    return (title, xlabel, ylabel, use_xlim, xmin, xmax, use_ylim, ymin, ymax, legend_show, legend_loc, legend_ncol, legend_fontsize, legend_frame)
+    return (
+        title,
+        xlabel,
+        ylabel,
+        use_xlim,
+        xmin,
+        xmax,
+        use_ylim,
+        ymin,
+        ymax,
+        use_xstep,
+        xstep,
+        use_ystep,
+        ystep,
+        legend_show,
+        legend_loc,
+        legend_ncol,
+        legend_fontsize,
+        legend_frame,
+    )
+
 
 with tab1:
     y_col = "mag_dB" if mag_scale == "dB" else "mag"

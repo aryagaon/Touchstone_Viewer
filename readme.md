@@ -18,9 +18,6 @@ A lightweight local web app for viewing and comparing Touchstone **.s2p / .sNp**
   - **CSV (wide / Excel-style)**: one column per curve
 ---
 ## Screenshots
-
-(Add screenshots here once you have them. Example:)
-
 - `docs/screenshot-magnitude.png`
 
 - `docs/screenshot-smith.png`
